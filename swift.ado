@@ -69,7 +69,7 @@ qui {
   
   tempname X
   
-  noi disp _n "Progress: "
+  noi disp _n in y "Progress: "
   
   foreach i of numlist 1/`nsplit' {
     
@@ -90,39 +90,43 @@ qui {
       noi disp in w "." _c
       
       // stepwise, get variables
-      stepwise, pr(`pr') pe(`pe'): reg `varlist' `xvars' `wgtcall' `iff_tr'
-      local xvarm: colnames e(b)
-      local xvarm: subinstr local xvarm "_cons" "", word
-      
-      // regression in training
-      reg `varlist' `xvarm' `wgtcall' `iff_tr'
-      local r2_a = e(r2_a)
-      
-      // Predict in test
-      tempvar yhat sqerr
-      predict `yhat' `iff_ts'
-      gen `sqerr' = (`varlist' - `yhat')^2 `iff_ts'
-      svy: mean `sqerr' `iff_ts'
-      local mse = e(b)[1,1]
-      
-      // set to missing all welfare values for mi
-      replace `varlist' =. `iff_ts'
-      
-      // Multiple imputation
-      mi set mlong                       // define output
-      mi register imputed `varlist'      // register welfare variabe
-      mi impute reg `varlist' `xvarm' `wgtcall', add(`addm') rseed(`seed') force
-      
-      // new variabe
-      tempvar imp_w
-      gen `imp_w' = (`varlist' < `povline' ) & _mi_m > 0
-      mi estimate, post: svy: mean `imp_w' `iff_ts'
-      local mipov = e(b)[1,1]
-      
-      local diffmse = abs(`rpov' - `mipov')
-      
-      matrix `X' = nullmat(`X') \ `pe', `i', `rpov', `r2_a', `mse', `mipov', `diffmse'
-      
+      cap {
+        stepwise, pr(`pr') pe(`pe'): reg `varlist' `xvars' `wgtcall' `iff_tr'
+        local xvarm: colnames e(b)
+        local xvarm: subinstr local xvarm "_cons" "", word
+        
+        // regression in training
+        reg `varlist' `xvarm' `wgtcall' `iff_tr'
+        local r2_a = e(r2_a)
+        
+        // Predict in test
+        tempvar yhat sqerr
+        predict `yhat' `iff_ts'
+        gen `sqerr' = (`varlist' - `yhat')^2 `iff_ts'
+        svy: mean `sqerr' `iff_ts'
+        local mse = e(b)[1,1]
+        
+        // set to missing all welfare values for mi
+        replace `varlist' =. `iff_ts'
+        
+        // Multiple imputation
+        mi set mlong                       // define output
+        mi register imputed `varlist'      // register welfare variabe
+        mi impute reg `varlist' `xvarm' `wgtcall', add(`addm') rseed(`seed') force
+        
+        // new variabe
+        tempvar imp_w
+        gen `imp_w' = (`varlist' < `povline' ) & _mi_m > 0
+        mi estimate, post: svy: mean `imp_w' `iff_ts'
+        local mipov = e(b)[1,1]
+        
+        local diffmse = abs(`rpov' - `mipov')
+        
+        matrix `X' = nullmat(`X') \ `pe', `i', `rpov', `r2_a', `mse', `mipov', `diffmse'
+      }
+      if (_rc) {
+        noi disp in r "error occurred during folde `i' and pe `pe'" _n 
+      }
       
       local pe = `pe' + `deltape'
       local pr = `pe' + `tolerancepe'
@@ -137,12 +141,31 @@ qui {
   ==================================================*/
   
   //------------return matrix X
-  mat colnames `X' = pe fold_ poor_ r2 mse imp_poor absdiff
+  mat colnames `X' = pe fold_ poor r2 mse imp_poor absdiff
   return matrix pmi = `X', copy
   
   //------------calculate mean of MSE  and diff in poverty rates by pe
   drop _all 
   svmat `X', n(col)
+  gen n = _n
+  
+  // P where the absolute value of the difference between the actual and 
+  //the projected poverty rates is minimized
+  sum absdiff, meanonly
+  scalar mindiff = r(min)  // minimum diff in poverty rates
+  
+  sum n if absdiff == mindiff, meanonly
+  local mindiff_pe = r(max)
+  return local mindiff_pe = `mindiff_pe'
+  
+  // P where the meas squared error is minimized
+  sum mse, meanonly
+  scalar minmse = r(min)  // minimum diff in poverty rates
+  
+  sum n if mse == minmse, meanonly
+  local minmse_pe = r(max)
+  return local minmse_pe = `minmse_pe'
+  
   collapse (mean) mmse = mse (mean) mabsdiff = absdiff, by(pe)
   
   tempname Y
