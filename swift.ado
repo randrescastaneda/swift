@@ -91,11 +91,11 @@ qui {
       
       // stepwise, get variables
       stepwise, pr(`pr') pe(`pe'): reg `varlist' `xvars' `wgtcall' `iff_tr'
-      local xvars: colnames e(b)
-      local xvars: subinstr local xvars "_cons" "", word
+      local xvarm: colnames e(b)
+      local xvarm: subinstr local xvarm "_cons" "", word
       
       // regression in training
-      reg `varlist' `xvars' `wgtcall' `iff_tr'
+      reg `varlist' `xvarm' `wgtcall' `iff_tr'
       local r2_a = e(r2_a)
       
       // Predict in test
@@ -111,7 +111,7 @@ qui {
       // Multiple imputation
       mi set mlong                       // define output
       mi register imputed `varlist'      // register welfare variabe
-      mi impute reg `varlist' `xvars' `wgtcall', add(`addm') rseed(`seed') force
+      mi impute reg `varlist' `xvarm' `wgtcall', add(`addm') rseed(`seed') force
       
       // new variabe
       tempvar imp_w
