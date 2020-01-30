@@ -144,13 +144,15 @@ mkmat *, matrix(`Y')
 return matrix mmse = `Y'
 
 if ("`chart'" != "nochart") {
-  *graph
-  twoway scatter mmse pe  
+  tempfile msec absdiffc 
+  twoway scatter mmse pe
+  gr save `msec', replace
+  
+  twoway scatter mabsdiff pe
+  gr save `absdiffc', replace
+  
+  gr combine `msec' `absdiffc'
 }
-
-
-
-
 
 end
 exit
