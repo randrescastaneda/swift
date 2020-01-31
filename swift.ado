@@ -29,14 +29,19 @@ TOLERANCEpe(real 0.00001)  /// Tolenrance of pr to pe (local pr = `pe' + `tolera
 ADDm(integer 20)           /// number of m in mi 
 seed(integer 12345678)     /// seed
 noCHART                    ///
+GENWelfare(string)         ///
+GENPov(string)             ///
+GENFold(string)            ///
 ]
 version 16
 
 //------------Conditions
-preserve
 marksample touse 
 
 qui {
+  
+  cap which midiagplots
+  if (_rc) ssc install midiagplots
   
   
   /*==================================================
@@ -116,7 +121,7 @@ qui {
     use `basef', clear
     
   }
-  
+  disp _n ""
   /*==================================================
   3: Organize results
   ==================================================*/
@@ -137,7 +142,8 @@ qui {
   
   sum n if absdiff == mindiff, meanonly
   local n = r(max)
-  return local mindiff_pe = `: disp pe[`n']'
+  local mindiff_pe = `: disp pe[`n']'
+  return local mindiff_pe = `mindiff_pe'
   
   // P where the meas squared error is minimized
   sum mse, meanonly
@@ -145,7 +151,8 @@ qui {
   
   sum n if mse == minmse, meanonly
   local n = r(max)
-  return local minmse_pe = `: disp pe[`n']'
+  local minmse_pe = `: disp pe[`n']'
+  return local minmse_pe = `minmse_pe'
   
   collapse (mean) mmse = mse (mean) mabsdiff = absdiff, by(pe)
   
@@ -159,7 +166,35 @@ qui {
     twoway scatter mmse pe, name(`msec', replace)
     twoway scatter mabsdiff pe, name(`absdiffc', replace)
     gr combine `msec' `absdiffc'
-  }  
+  }
+  
+  
+  //========================================================
+  // predict povert in the whole sample
+  //========================================================
+  
+  use `basef', clear
+  
+  if ("`genfold'" == "") {
+    local genfold "bifold"
+  }
+  
+  expand 2, gen(`genfold')
+  
+  if ("`genwelfare'" == "") {
+    local genwelfare "`varlist'_mi"
+  }
+  if ("`genpov'" == "") {
+    local genpov "pov_mi"
+  }
+  
+  local pr = `mindiff_pe' + `tolerancepe'
+  
+  swift_estimate `varlist' `wgtcall', povline(`povline') xvars(`xvars') /* 
+   */ pe(`mindiff_pe') pr(`pr') addm(`addm') seed(`seed') /* 
+   */ bifold(`genfold')  welfimp(`genwelfare') povimp(`genpov')
+  return add
+  
 } // end of qui 
 
 
