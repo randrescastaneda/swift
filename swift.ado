@@ -75,8 +75,11 @@ qui {
     
     noi disp _n in y "Fold `i' " _c
     // sample conditions
-    local iff_tr "if (`touse' & `fold' !=`i')" // training
-    local iff_ts "if (`touse' & `fold' ==`i')" // test
+    tempvar bifold 
+    gen `bifold' = (`fold' ==`i')
+    tempfile baset
+    save `baset'
+    
     
     // Actual poverty rate in fold i
     svy: mean `pov' `iff_ts'
@@ -91,48 +94,26 @@ qui {
       
       // stepwise, get variables
       cap {
-        stepwise, pr(`pr') pe(`pe'): reg `varlist' `xvars' `wgtcall' `iff_tr'
-        local xvarm: colnames e(b)
-        local xvarm: subinstr local xvarm "_cons" "", word
+        swift_estimate `varlist' `wgtcall', povline(`povline') xvars(`xvars') /* 
+        */ pe(`pe') pr(`pr') addm(`addm') seed(`seed') bifold(`bifold') 
         
-        // regression in training
-        reg `varlist' `xvarm' `wgtcall' `iff_tr'
-        local r2_a = e(r2_a)
-        
-        // Predict in test
-        tempvar yhat sqerr
-        predict `yhat' `iff_ts'
-        gen `sqerr' = (`varlist' - `yhat')^2 `iff_ts'
-        svy: mean `sqerr' `iff_ts'
-        local mse = e(b)[1,1]
-        
-        // set to missing all welfare values for mi
-        replace `varlist' =. `iff_ts'
-        
-        // Multiple imputation
-        mi set mlong                       // define output
-        mi register imputed `varlist'      // register welfare variabe
-        mi impute reg `varlist' `xvarm' `wgtcall', add(`addm') rseed(`seed') force
-        
-        // new variabe
-        tempvar imp_w
-        gen `imp_w' = (`varlist' < `povline' ) & _mi_m > 0
-        mi estimate, post: svy: mean `imp_w' `iff_ts'
-        local mipov = e(b)[1,1]
+        local mipov = `r(mipov)'
         
         local diffmse = abs(`rpov' - `mipov')
         
-        matrix `X' = nullmat(`X') \ `pe', `i', `rpov', `r2_a', `mse', `mipov', `diffmse'
+        matrix `X' = nullmat(`X') \ `pe', `i', `rpov', `r(r2_a)', `r(mse)', `mipov', `diffmse'
       }
       if (_rc) {
-        noi disp in r "error occurred during folde `i' and pe `pe'" _n 
+        noi disp in r "error occurred during fold `i' and pe `pe'" _n 
       }
       
       local pe = `pe' + `deltape'
       local pr = `pe' + `tolerancepe'
       
-      use `basef', clear
+      use `baset', clear
+      
     }
+    use `basef', clear
     
   }
   
@@ -155,16 +136,16 @@ qui {
   scalar mindiff = r(min)  // minimum diff in poverty rates
   
   sum n if absdiff == mindiff, meanonly
-  local mindiff_pe = r(max)
-  return local mindiff_pe = `mindiff_pe'
+  local n = r(max)
+  return local mindiff_pe = `: disp pe[`n']'
   
   // P where the meas squared error is minimized
   sum mse, meanonly
   scalar minmse = r(min)  // minimum diff in poverty rates
   
   sum n if mse == minmse, meanonly
-  local minmse_pe = r(max)
-  return local minmse_pe = `minmse_pe'
+  local n = r(max)
+  return local minmse_pe = `: disp pe[`n']'
   
   collapse (mean) mmse = mse (mean) mabsdiff = absdiff, by(pe)
   
