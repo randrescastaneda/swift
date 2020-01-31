@@ -165,13 +165,18 @@ qui {
   if ("`chart'" != "nochart") {
     
     if ("`savegraph'" == "") {
-      local savegraph "swift_performance"
+      local savegraph "cross_validation.gph"
+    } 
+    else {
+      if !regexm(lower("`savegraph'"), "\.[a-z]+$")  {
+        local savegraph  = "`savegraph'" + ".gph"
+      }
     }
     
     tempname msec absdiffc 
     twoway scatter mmse pe, name(`msec', replace)
     twoway scatter mabsdiff pe, name(`absdiffc', replace)
-    gr combine `msec' `absdiffc'
+    gr combine `msec' `absdiffc', name(cross_validation, replace)
     gr save "`savegraph'", replace
   }
   
