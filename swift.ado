@@ -32,6 +32,7 @@ noCHART                    ///
 GENWelfare(string)         ///
 GENPov(string)             ///
 GENFold(string)            ///
+SAVEGraph(string)          ///
 ]
 version 16
 
@@ -41,7 +42,7 @@ marksample touse
 qui {
   
   cap which midiagplots
-  if (_rc) ssc install midiagplots
+  if (_rc) net install st0263.pkg
   
   
   /*==================================================
@@ -162,10 +163,16 @@ qui {
   return matrix mmse = `Y'
   
   if ("`chart'" != "nochart") {
+    
+    if ("`savegraph'" == "") {
+      local savegraph "swift_performance"
+    }
+    
     tempname msec absdiffc 
     twoway scatter mmse pe, name(`msec', replace)
     twoway scatter mabsdiff pe, name(`absdiffc', replace)
     gr combine `msec' `absdiffc'
+    gr save "`savegraph'", replace
   }
   
   
@@ -191,9 +198,13 @@ qui {
   local pr = `mindiff_pe' + `tolerancepe'
   
   swift_estimate `varlist' `wgtcall', povline(`povline') xvars(`xvars') /* 
-   */ pe(`mindiff_pe') pr(`pr') addm(`addm') seed(`seed') /* 
-   */ bifold(`genfold')  welfimp(`genwelfare') povimp(`genpov')
+  */ pe(`mindiff_pe') pr(`pr') addm(`addm') seed(`seed') /* 
+  */ bifold(`genfold')  welfimp(`genwelfare') povimp(`genpov')
   return add
+  
+  return local cmd_kpob = "keep if (_mi_m != 0 | `genfold' == 1)"
+  return local cmd_mean_aft = "mi estimate: mean `genpov' `wgtcall'"
+  return local cmd_mean_bfr = "mi estimate: mean `genpov' `wgtcall' if (_mi_m != 0 | `genfold' == 1)"
   
 } // end of qui 
 
