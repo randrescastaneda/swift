@@ -174,8 +174,13 @@ qui {
     }
     
     tempname msec absdiffc 
-    twoway scatter mmse pe, name(`msec', replace)
-    twoway scatter mabsdiff pe, name(`absdiffc', replace)
+    twoway scatter mmse pe, name(`msec', replace) xlabel(0(0.01)`limitpe', grid alternate) /* 
+     */ ytitle("Mean MSE") xtitle("Probability") title("Mean MSE over prob. ln(y)")
+    
+    twoway scatter mabsdiff pe, name(`absdiffc', replace)          /* 
+     */ xlabel(0(0.01)`limitpe', grid alternate) ytitle("Absolute bias") /* 
+     */ xtitle("Probability") title("Mean absolute bias over prob. (poverty)")
+     
     gr combine `msec' `absdiffc', name(cross_validation, replace)
     gr save "`savegraph'", replace
   }
